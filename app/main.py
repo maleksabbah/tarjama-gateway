@@ -1,59 +1,63 @@
 """
-ASR Gateway Service
-====================
-The public-facing API gateway for the Arabic ASR platform.
-Handles authentication, rate limiting, and proxies requests
-to the Orchestrator and Storage services.
+ASR Gateway — public-facing API.
+- Authenticates users (JWT / API key)
+- Rate-limits and quota-checks
+- Proxies to Orchestrator and Storage services
+- Terminates WebSockets for live transcription
 
 Run:
-  uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+import httpx
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
-from app.Config import config
-from app.Database import init_db, close_db
-from app.Rate_limiter import init_redis, close_redis
-from app.Routes import router
+from app.Config.Config import config
+from app.Config.Database import close_db
+from app.Config.Redis import close_redis
+from app.ExceptionHandler import register_exception_handlers
+from app.Routes import (
+    auth_router,
+    user_router,
+    job_router,
+    file_router,
+    ws_router,
+)
 
-from fastapi.security import HTTPBearer
 
-security = HTTPBearer()
-
+# ─── Lifespan ───────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events."""
     # Startup
     print("Starting Gateway...")
-    await init_db()
-    print("  PostgreSQL connected")
-    await init_redis()
-    print("  Redis connected")
+    app.state.http_client = httpx.AsyncClient(timeout=30.0)
     print(f"  Orchestrator: {config.ORCHESTRATOR_URL}")
-    print(f"  Storage: {config.STORAGE_URL}")
+    print(f"  Storage:      {config.STORAGE_URL}")
     print("Gateway ready.")
 
-    yield
+    try:
+        yield
+    finally:
+        # Shutdown
+        print("Shutting down Gateway...")
+        await app.state.http_client.aclose()
+        await close_redis()
+        await close_db()
+        print("Gateway stopped.")
 
-    # Shutdown
-    print("Shutting down Gateway...")
-    await close_db()
-    await close_redis()
-    print("Gateway stopped.")
 
+# ─── App ────────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="ASR Gateway",
+    title="Tarjama Gateway",
     description="Arabic Speech Recognition API Gateway",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -62,30 +66,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+register_exception_handlers(app)
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"},
-    )
-
-
-# Include routes
-app.include_router(router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
+app.include_router(job_router, prefix="/api")
+app.include_router(file_router, prefix="/api")
+app.include_router(ws_router)  # /ws/* — no /api prefix
 
 
-# Health check
+# ─── Health & root ──────────────────────────────────────────────────────
+
 @app.get("/health")
-async def health():
+async def health() -> dict:
     return {"status": "ok", "service": "gateway"}
 
 
 @app.get("/")
-async def root():
+async def root() -> dict:
     return {
-        "service": "ASR Gateway",
-        "version": "1.0.0",
+        "service": "Tarjama Gateway",
+        "version": "2.0.0",
         "docs": "/docs",
     }
