@@ -4,8 +4,9 @@ from app.Dtos.UserDto import (
     UserResponse,
     QuotaResponse,
 )
-from app.Dtos.AuthDto import LoginRequest, RefreshRequest, TokenResponse, CreateJobRequest
+from app.Dtos.AuthDto import LoginRequest, RefreshRequest, TokenResponse
 from app.Dtos.JobDto import CreateJobRequest
+
 __all__ = [
     "RegisterRequest",
     "UpdateUsageRequest",
