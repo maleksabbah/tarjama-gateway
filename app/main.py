@@ -3,7 +3,6 @@ ASR Gateway — public-facing API.
 - Authenticates users (JWT / API key)
 - Rate-limits and quota-checks
 - Proxies to Orchestrator and Storage services
-- Terminates WebSockets for live transcription
 
 Run:
   uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -16,14 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.Config.Config import config
 from app.Config.Database import close_db
-from app.Config.Redis import close_redis
 from app.ExceptionHandler import register_exception_handlers
 from app.Routes import (
     auth_router,
     user_router,
     job_router,
     file_router,
-    ws_router,
 )
 
 
@@ -44,7 +41,6 @@ async def lifespan(app: FastAPI):
         # Shutdown
         print("Shutting down Gateway...")
         await app.state.http_client.aclose()
-        await close_redis()
         await close_db()
         print("Gateway stopped.")
 
@@ -72,7 +68,6 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(job_router, prefix="/api")
 app.include_router(file_router, prefix="/api")
-app.include_router(ws_router)  # /ws/* — no /api prefix
 
 
 # ─── Health & root ──────────────────────────────────────────────────────
