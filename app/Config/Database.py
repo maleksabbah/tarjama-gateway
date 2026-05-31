@@ -39,12 +39,5 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         await session.close()
 
 
-async def init_db() -> None:
-    """Create all tables on startup if they don't exist."""
-    from app.Entities import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
 async def close_db() -> None:
     await engine.dispose()

@@ -3,6 +3,7 @@ ASR Gateway — public-facing API.
 - Authenticates users (JWT / API key)
 - Rate-limits and quota-checks
 - Proxies to Orchestrator and Storage services
+- Terminates WebSockets for live transcription
 
 Run:
   uvicorn app.main:app --host 0.0.0.0 --port 8000
