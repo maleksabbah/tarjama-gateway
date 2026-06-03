@@ -55,9 +55,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+import os as _os
+_cors = _os.getenv(
+    "CORS_ORIGINS",
+    "https://tarjma.app,https://app.tarjma.app,https://tarjama-frontend.vercel.app",
+)
+_origins = [o.strip() for o in _cors.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
